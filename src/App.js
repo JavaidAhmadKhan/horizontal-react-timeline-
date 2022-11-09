@@ -1,87 +1,259 @@
-import React, { useState } from "react";
-import { Accordion, Card, Col, Container, Row } from "react-bootstrap";
+import React from "react";
+import { makeStyles } from "@material-ui/core/styles";
+import Stepper from "@material-ui/core/Stepper";
+import Step from "@material-ui/core/Step";
+import StepButton from "@material-ui/core/StepButton";
+import Button from "@material-ui/core/Button";
+import Typography from "@material-ui/core/Typography";
+import Iframe from "react-iframe";
 
-import Alert from "react-bootstrap/Alert";
-import Button from "react-bootstrap/Button";
+const useStyles = makeStyles((theme) => ({
+  root: {
+    width: "90%",
+  },
+  button: {
+    marginRight: theme.spacing(1),
+  },
+  backButton: {
+    marginRight: theme.spacing(1),
+  },
+  completed: {
+    display: "inline-block",
+  },
+  instructions: {
+    marginTop: theme.spacing(1),
+    marginBottom: theme.spacing(1),
+  },
+}));
 
-import "./App.css";
+function getSteps() {
+  return [".", ".", ".", ".", "."];
+}
 
-export default function App() {
-  const [show, setShow] = useState(true);
+function getStepContent(step) {
+  switch (step) {
+    case 0:
+      return "Step 1: Select campaign settings...";
+    case 1:
+      return "Step 2: What is an ad group anyways?";
+    case 2:
+      return "Step 3: This is the bit I really care about!";
+    case 4:
+      return "Step 4: This is the bit I really care about!";
+    default:
+      return "";
+  }
+}
+
+export default function HorizontalNonLinearAlternativeLabelStepper() {
+  const classes = useStyles();
+  const [activeStep, setActiveStep] = React.useState(0);
+  const [completed, setCompleted] = React.useState(new Set());
+  const [skipped, setSkipped] = React.useState(new Set());
+  const steps = getSteps();
+
+  function totalSteps() {
+    return getSteps().length;
+  }
+
+  function isStepOptional(step) {
+    return step === 1;
+  }
+
+  function handleSkip() {
+    if (!isStepOptional(activeStep)) {
+      // You probably want to guard against something like this
+      // it should never occur unless someone's actively trying to break something.
+      throw new Error("You can't skip a step that isn't optional.");
+    }
+
+    setActiveStep((prevActiveStep) => prevActiveStep + 1);
+    setSkipped((prevSkipped) => {
+      const newSkipped = new Set(prevSkipped.values());
+      newSkipped.add(activeStep);
+      return newSkipped;
+    });
+  }
+
+  function skippedSteps() {
+    return skipped.size;
+  }
+
+  function completedSteps() {
+    return completed.size;
+  }
+
+  function allStepsCompleted() {
+    return completedSteps() === totalSteps() - skippedSteps();
+  }
+
+  function isLastStep() {
+    return activeStep === totalSteps() - 1;
+  }
+
+  function handleNext() {
+    const newActiveStep =
+      isLastStep() && !allStepsCompleted()
+        ? // It's the last step, but not all steps have been completed
+          // find the first step that has been completed
+          steps.findIndex((step, i) => !completed.has(i))
+        : activeStep + 1;
+
+    setActiveStep(newActiveStep);
+  }
+
+  function handleBack() {
+    setActiveStep((prevActiveStep) => prevActiveStep - 1);
+  }
+
+  const handleStep = (step) => () => {
+    setActiveStep(step);
+    console.log("step: " + step);
+  };
+
+  function handleComplete() {
+    const newCompleted = new Set(completed);
+    newCompleted.add(activeStep);
+    setCompleted(newCompleted);
+
+    /**
+     * Sigh... it would be much nicer to replace the following if conditional with
+     * `if (!this.allStepsComplete())` however state is not set when we do this,
+     * thus we have to resort to not being very DRY.
+     */
+    if (completed.size !== totalSteps() - skippedSteps()) {
+      handleNext();
+    }
+  }
+
+  function handleReset() {
+    setActiveStep(0);
+    setCompleted(new Set());
+    setSkipped(new Set());
+  }
+
+  function isStepSkipped(step) {
+    return skipped.has(step);
+  }
+
+  function isStepComplete(step) {
+    return completed.has(step);
+  }
 
   return (
-    <div>
-      <Alert show={show} variant="success">
-        <Alert.Heading>How's it going?!</Alert.Heading>
-        <p>
-          Duis mollis, est non commodo luctus, nisi erat porttitor ligula, eget
-          lacinia odio sem nec elit. Cras mattis consectetur purus sit amet
-          fermentum.
-        </p>
-        <hr />
-        <div className="d-flex justify-content-end">
-          <Button onClick={() => setShow(false)} variant="outline-success">
-            Close me y'all!
-          </Button>
-        </div>
-      </Alert>
+    <div className={classes.root}>
+      <Stepper alternativeLabel nonLinear activeStep={activeStep}>
+        {steps.map((label, index) => {
+          const stepProps = {};
+          const buttonProps = {};
+          buttonProps.optional = (
+            <div>
+              <Button
+                color="primary"
+                variant="contained"
+                className={classes.button}
+                // onClick={(e) => {
+                //   console.log("11111");
+                // }}
+              >
+                January
+              </Button>
+              {/* <Button
+                color="primary"
+                variant="contained"
+                className={classes.button}
+                onClick={(e) => console.log("22222")}
+              >
+                Feb
+              </Button> */}
+            </div>
+          );
+          if (isStepSkipped(index)) {
+            stepProps.completed = false;
+          }
+          return (
+            <Step key={label} {...stepProps}>
+              <StepButton
+                onClick={handleStep(index)}
+                completed={isStepComplete(index)}
+                {...buttonProps}
+              >
+                {label}
+              </StepButton>
+            </Step>
+          );
+        })}
+      </Stepper>
+      <div>
+        {allStepsCompleted() ? (
+          <div>
+            <Typography className={classes.instructions}>
+              All steps completed - you&apos;re finished
+            </Typography>
+            <Button onClick={handleReset}>Reset</Button>
+          </div>
+        ) : (
+          <div>
+            <Typography className={classes.instructions}>
+              {getStepContent(activeStep)}
+            </Typography>
+            <div>
+              {/* <Button
+                disabled={activeStep === 0}
+                onClick={handleBack}
+                className={classes.button}
+              >
+                Back
+              </Button> */}
+              {/* <Button
+                variant="contained"
+                color="primary"
+                onClick={handleNext}
+                className={classes.button}
+              >
+                Next
+              </Button> */}
+              {/* {isStepOptional(activeStep) && !completed.has(activeStep) && (
+                <Button
+                  variant="contained"
+                  color="primary"
+                  onClick={handleSkip}
+                  className={classes.button}
+                >
+                  Skip
+                </Button>
+              )} */}
 
-      {!show && <Button onClick={() => setShow(true)}>Show Alert</Button>}
+              {/* {activeStep !== steps.length &&
+                (completed.has(activeStep) ? (
+                  <Typography variant="caption" className={classes.completed}>
+                    Step {activeStep + 1} already completed
+                  </Typography>
+                ) : (
+                  <Button
+                    variant="contained"
+                    color="primary"
+                    onClick={handleComplete}
+                  >
+                    {completedSteps() === totalSteps() - 1
+                      ? "Finish"
+                      : "Complete Step"}
+                  </Button>
+                ))} */}
+            </div>
+          </div>
+        )}
+      </div>
 
-      <Container>
-        <Row>
-          <Col sm={8}>
-            The Supplier Code of Conduct applies to all ‘Suppliers globally.
-            ‘Supplier’ here refers to suppliers/service providers/
-            traders/agents/ consultants/ contractors/ joint venture partners/
-            third parties including their employees, agents, and other
-            representatives, who have a business relationship with and provide,
-            sell, seek to sell, any kinds of goods or services to Ayana
-            Renewable Power Private Limited or any of its subsidiaries,
-            affiliates, divisions (“Ayana”). This Supplier Code of Conduct sets
-            forth the requirements that Ayana asks its Suppliers to respect and
-            adhere to when conducting business with or on behalf of Ayana. This
-            Supplier Code of Conduct embodies Ayana’s commitment to
-            internationally recognized standards and applicable statutory
-            requirements concerning Anti-Bribery, Anti-Corruption, Environment
-            Protection, Minimum Wages, Child Labour, Health and Safety,
-            whichever requirements impose the highest standards of conduct.
-          </Col>
-          <Col xs lg="3">
-            <img
-              src="https://ayana-powerv2.vercel.app/static/media/vendor_code_conduct.6d609271df2acffb47eb.png"
-              className="img-fluid ${3|rounded-top,rounded-right,rounded-bottom,rounded-left,rounded-circle,|}"
-              alt=""
-            />
-          </Col>
-        </Row>
-      </Container>
-      <Accordion defaultActiveKey="0">
-        <Accordion.Item eventKey="0">
-          <Accordion.Header>Accordion Item #1</Accordion.Header>
-          <Accordion.Body>
-            Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do
-            eiusmod tempor incididunt ut labore et dolore magna aliqua. Ut enim
-            ad minim veniam, quis nostrud exercitation ullamco laboris nisi ut
-            aliquip ex ea commodo consequat. Duis aute irure dolor in
-            reprehenderit in voluptate velit esse cillum dolore eu fugiat nulla
-            pariatur. Excepteur sint occaecat cupidatat non proident, sunt in
-            culpa qui officia deserunt mollit anim id est laborum.
-          </Accordion.Body>
-        </Accordion.Item>
-        <Accordion.Item eventKey="1">
-          <Accordion.Header>Accordion Item #2</Accordion.Header>
-          <Accordion.Body>
-            Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do
-            eiusmod tempor incididunt ut labore et dolore magna aliqua. Ut enim
-            ad minim veniam, quis nostrud exercitation ullamco laboris nisi ut
-            aliquip ex ea commodo consequat. Duis aute irure dolor in
-            reprehenderit in voluptate velit esse cillum dolore eu fugiat nulla
-            pariatur. Excepteur sint occaecat cupidatat non proident, sunt in
-            culpa qui officia deserunt mollit anim id est laborum.
-          </Accordion.Body>
-        </Accordion.Item>
-      </Accordion>
+      {/* <Iframe
+        url="https://yuque.antfin-inc.com/awf0ww/xgftyp/ipave2"
+        width="100%"
+        height="450px"
+        id="myId"
+        className="myClassname"
+        display="initial"
+        position="relative"
+      /> */}
     </div>
   );
 }
